@@ -96,6 +96,7 @@
 			this.SizeAdjuster.Name = "SizeAdjuster";
 			this.SizeAdjuster.Size = new System.Drawing.Size(960, 615);
 			this.SizeAdjuster.TabIndex = 0;
+			this.SizeAdjuster.SizeChanged += new System.EventHandler(this.SizeAdjuster_SizeChanged);
 			// 
 			// Icons
 			// 

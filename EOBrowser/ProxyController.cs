@@ -14,7 +14,7 @@ namespace EOBrowser
 		public ProxyController()
 		{
 			proxyServer = new ProxyServer();
-			proxyServer.TrustRootCertificate = false;
+			// proxyServer.TrustRootCertificate = false;
 			// proxyServer.certValidated = false;
 		}
 
@@ -22,9 +22,9 @@ namespace EOBrowser
 
 		public void StartProxy(int listen_port, string upstream_proxy_host, int upstream_proxy_port)
 		{
-			proxyServer.BeforeRequest += OnRequest;
-			proxyServer.BeforeResponse += OnResponse;
-			proxyServer.AddEndPoint(new ExplicitProxyEndPoint(IPAddress.Parse("127.0.0.1"), listen_port, true));
+			// proxyServer.BeforeRequest += OnRequest;
+			// proxyServer.BeforeResponse += OnResponse;
+			proxyServer.AddEndPoint(new TransparentProxyEndPoint(IPAddress.Parse("127.0.0.1"), listen_port, false));
 			if (!String.IsNullOrEmpty(upstream_proxy_host) && upstream_proxy_port != 0) {
 				proxyServer.UpStreamHttpProxy = new ExternalProxy() { HostName = upstream_proxy_host, Port = upstream_proxy_port };
 			}
@@ -37,13 +37,23 @@ namespace EOBrowser
 
 		public void Stop()
 		{
-			proxyServer.BeforeRequest -= OnRequest;
-			proxyServer.BeforeResponse -= OnResponse;
+			// proxyServer.BeforeRequest -= OnRequest;
+			// proxyServer.BeforeResponse -= OnResponse;
 			proxyServer.Stop();
 		}
 
 		public async Task OnRequest(object sender, SessionEventArgs e)
 		{
+			return;
+			var method = e.WebSession.Request.Method.ToUpper();
+			if (method == "GET" && e.WebSession.Request.RequestUri.AbsoluteUri.Contains("/kcs/resources/"))
+			{
+				// System.Windows.Forms.MessageBox.Show(e.WebSession.Request.RequestUri.AbsoluteUri);
+				// await Task.FromResult(0);
+				// await e.Ok("", 200);
+			}
+			// await Task.FromResult(0);
+/*
 			// Console.WriteLine(e.WebSession.Request.RequestUri.AbsoluteUri);
 
 			////read request headers
@@ -79,24 +89,17 @@ namespace EOBrowser
 			{
 				await e.Redirect("https://www.paypal.com");
 			}
+*/
 		}
 
 		public async Task OnResponse(object sender, SessionEventArgs e)
 		{
-			//read response headers
 			var responseHeaders = e.WebSession.Response.ResponseHeaders;
-
-			// print out process id of current session
-			// Console.WriteLine($"PID: {e.WebSession.ProcessId.Value}");
-
-			Console.WriteLine(e.WebSession.Request.RequestUri.AbsoluteUri);
-
-			//if (!e.ProxySession.Request.Host.Equals("medeczane.sgk.gov.tr")) return;
-			if (e.WebSession.Request.Method == "GET" || e.WebSession.Request.Method == "POST")
+			if (e.WebSession.Request.Method == "GET" && e.WebSession.Request.RequestUri.AbsoluteUri.Contains("/kcs/resources/"))
 			{
 				if (e.WebSession.Response.ResponseStatusCode == "200")
 				{
-					if (e.WebSession.Response.ContentType != null && e.WebSession.Response.ContentType.Trim().ToLower().Contains("text/html"))
+					if (e.WebSession.Response.ContentType != null)
 					{
 						byte[] bodyBytes = await e.GetResponseBody();
 						await e.SetResponseBody(bodyBytes);
@@ -106,6 +109,19 @@ namespace EOBrowser
 					}
 				}
 			}
+			return;
+/*
+			//read response headers
+			
+
+			// print out process id of current session
+			// Console.WriteLine($"PID: {e.WebSession.ProcessId.Value}");
+
+			Console.WriteLine(e.WebSession.Request.RequestUri.AbsoluteUri);
+
+			//if (!e.ProxySession.Request.Host.Equals("medeczane.sgk.gov.tr")) return;
+
+*/
 		}
 	}
 }

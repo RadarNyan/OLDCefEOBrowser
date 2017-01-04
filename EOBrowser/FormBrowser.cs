@@ -24,7 +24,8 @@ namespace EOBrowser
 				config_string = File.ReadAllText(config_file);
 			} else {
 				#region Default Config
-				config_string =
+
+config_string =
 @"{
   ""listen_port"":0,
   ""local_cache"":{
@@ -34,6 +35,7 @@ namespace EOBrowser
     ""change_cookie_region"":false
   }
 }";
+
 				#endregion
 				File.WriteAllText(config_file, config_string);
 			}
@@ -48,34 +50,24 @@ namespace EOBrowser
 
 		private bool Cef_started = false;
 
-		private void InitializeChromium(string proxy)
+		private void InitializeChromium(string proxy, string url)
 		{
 			CefLibraryHandle libraryLoader = new CefLibraryHandle(Path.Combine(cef_path, @"bin\libcef.dll"));
 			CefSettings settings = new CefSettings();
 			settings.CachePath = Path.Combine(cef_path, @"cache");
-			// Set Proxy
-			settings.CefCommandLineArgs.Add("proxy-server", proxy);
-/*
-			settings.CefCommandLineArgs.Add("proxy-server",
-				string.Format("http=127.0.0.1:{0};https={1}:{2}",
-					twp_listen_port, upstream_proxy_host, upstream_proxy_port));
-
-			settings.CefCommandLineArgs.Add("proxy-server",
-				string.Format("http=127.0.0.1:{0};https=127.0.0.1:8124",
-					twp_listen_port));
-*/
 			settings.UserDataPath = Path.Combine(cef_path, @"userdata");
 			settings.ResourcesDirPath = Path.Combine(cef_path, @"bin");
 			settings.LocalesDirPath = Path.Combine(cef_path, @"bin\locales");
 			settings.BrowserSubprocessPath = Path.Combine(cef_path, @"bin\CefSharp.BrowserSubprocess.exe");
+			settings.CefCommandLineArgs.Add("proxy-server", proxy);
+			//settings.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"; // Fake UA as IE11 on Windows 7
 			Cef.Initialize(settings);
 			//chromeBrowser = new ChromiumWebBrowser("chrome://view-http-cache/");
-			//chromeBrowser = new ChromiumWebBrowser("https://plus.google.com/");
-			//Browser = new ChromiumWebBrowser("http://cn.bing.com/");
-			Browser = new ChromiumWebBrowser("http://cn.bing.com/");
+			//Browser = new ChromiumWebBrowser("http://www.whoishostingthis.com/tools/user-agent/");
+			//Browser = new ChromiumWebBrowser(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"CefEOBrowser\html\default.htm"));
+			Browser = new ChromiumWebBrowser(url);
 			Cef_started = true;
 			//chromeBrowser.RequestHandler = new RequestHandler();
-			//Browser = new ChromiumWebBrowser(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"CefEOBrowser\html\default.htm"));
 			this.SizeAdjuster.Controls.Add(Browser);
 			Browser.Dock = DockStyle.Fill;
 			libraryLoader.Dispose();
@@ -153,18 +145,21 @@ namespace EOBrowser
 
 			// Build proxy string for Cef Browser (http to TWP, https to upstream)
 			proxy_cef = "http=127.0.0.1:" + twp_listen_port + proxy;
-			MessageBox.Show(proxy_cef);
+			// AddLog(2, string.Format("Cef => TWP@{0} => 74eo@{1}{2}", twp_listen_port, proxy_port_74eo, proxy));
 
 			if (Cef_started) {
 				// TODO: change settings on-the-fly
 			} else {
 				// Start Cef Browser
-				InitializeChromium(proxy_cef);
+				InitializeChromium(proxy_cef, Configuration.LogInPageURL);
 			}
 		}
 
 		// KanColleSize (Game-Area, 1x zoom)
 		private readonly Size KanColleSize = new Size( 800, 480 );
+
+		// BrowserSize ( 最小化时设置浏览器尺寸为 0 以释放 CPU 资源，用此变量储存原尺寸 )
+		private Size BrowserSize;
 
 		// FormBrowserHostの通信サーバ
 		private string ServerUri;
@@ -184,6 +179,9 @@ namespace EOBrowser
 			ReadConfigFile();
 			InitializeComponent();
 			this.ToolMenu.Renderer = new ToolStripOverride(); // remove stupid rounded corner
+#if DEBUG
+			InitializeChromium("", "");
+#endif
 		}
 
 		private void FormBrowser_FormClosing(object sender, FormClosingEventArgs e)
@@ -253,7 +251,7 @@ namespace EOBrowser
 
 			SizeAdjuster.AutoScroll = Configuration.IsScrollable;
 			ToolMenu_Other_Zoom_Fit.Checked = Configuration.ZoomFit;
-			// ApplyZoom();
+			ApplyZoom();
 			ToolMenu_Other_AppliesStyleSheet.Checked = Configuration.AppliesStyleSheet;
 			ToolMenu.Dock = (DockStyle)Configuration.ToolMenuDockStyle;
 			ToolMenu.Visible = Configuration.IsToolMenuVisible;
@@ -374,9 +372,10 @@ namespace EOBrowser
 
 		private void CenteringBrowser() {
 			if (SizeAdjuster.Width == 0 || SizeAdjuster.Height == 0) return;
+			SizeAdjuster.SuspendLayout();
+			Browser.Size = BrowserSize;
 			int x = Browser.Location.X, y = Browser.Location.Y;
 			bool isScrollable = Configuration.IsScrollable;
-
 			Browser.Dock = DockStyle.None;
 			if ( !isScrollable || Browser.Width <= SizeAdjuster.Width ) {
 				x = ( SizeAdjuster.Width - Browser.Width ) / 2;
@@ -386,6 +385,7 @@ namespace EOBrowser
 			}
 			Browser.Anchor = AnchorStyles.None;
 			Browser.Location = new Point( x, y );
+			SizeAdjuster.ResumeLayout();
 		}
 
 		public void ApplyZoom()
@@ -415,11 +415,13 @@ namespace EOBrowser
 
 				if (StyleSheetApplied)
 				{
-					Browser.Size = Browser.MinimumSize = new Size(
+					// Browser.Size = Browser.MinimumSize = new Size(
+					// Setting MinimumSize would cause CPU usage to be high, why?
+					BrowserSize = new Size(
 						(int)(KanColleSize.Width * zoomFactor),
 						(int)(KanColleSize.Height * zoomFactor)
 						);
-					CenteringBrowser();
+					CenteringBrowser(); // this also causes high cpu usage
 				}
 
 				if (fit)
@@ -435,31 +437,32 @@ namespace EOBrowser
 			}
 			catch (Exception ex)
 			{
-				// AddLog(3, "", "调整缩放比例失败。" + ex.Message);
+				AddLog(3, "", "调整缩放比例失败。" + ex.Message);
 			}
 		}
 
 		private bool StyleSheetApplied;
 		#region JavaScripts (Apply & Restore)
-		private readonly string Page_JS = 
+
+private readonly string Page_JS =
 @"(function () {
 var node = document.getElementById('eobrowser_stylish');
 if (node) document.head.removeChild(node);
-
 node = document.createElement('style');
 node.id = 'eobrowser_stylish';
 node.innerHTML = 'body { visibility: hidden; overflow: hidden; } \
+div #block_background { visibility: visible; } \
+div #alert { visibility: visible; overflow: scroll; top: 0 !important; left: 3% !important; width: 90% !important; height: 100%; padding:2%;} \
 div.dmm-ntgnavi { display: none; } \
 #area-game { position: fixed; left: 0; top: 0; width: 100%; height: 100%; } \
 #game_frame { visibility: visible; width: 100%; height: 100%; }';
 document.head.appendChild(node);
 })();";
 
-		private readonly string Frame_JS = 
+private readonly string Frame_JS =
 @"(function () {
 var node = document.getElementById('eobrowser_stylish');
 if (node) document.head.removeChild(node);
-
 node = document.createElement('style');
 node.id = 'eobrowser_stylish';
 node.innerHTML = 'body { visibility: hidden; } \
@@ -468,63 +471,73 @@ node.innerHTML = 'body { visibility: hidden; } \
 document.head.appendChild(node);
 })();";
 
-		private readonly string Restore_JS =
+private readonly string Restore_JS =
 @"(function () {
 var node = document.getElementById('eobrowser_stylish');
 if (node) document.head.removeChild(node);
-})();";	
+})();";
+
 		#endregion
 
 		public void ApplyStyleSheet()
 		{
-			if ( !Configuration.AppliesStyleSheet && !StyleSheetApplied)
+			if (!StyleSheetApplied && !Configuration.AppliesStyleSheet)
 				return;
 
-			try {
-
-				// if ( Browser.Address.StartsWith( GAME_URL ) )
-				// {
-				if (Configuration.AppliesStyleSheet)
+			try
+			{
+				if (StyleSheetApplied)
 				{
-					if (!StyleSheetApplied)
+					var browser = Browser.GetBrowser();
+					bool has_game_frame = false;
+					foreach (var i in browser.GetFrameIdentifiers())
 					{
-						Browser.GetBrowser().MainFrame.ExecuteJavaScriptAsync(Page_JS);
-						var identifiers = Browser.GetBrowser().GetFrameIdentifiers();
-						foreach (var i in identifiers) {
-							IFrame frame = Browser.GetBrowser().GetFrame(i);
-							if (frame.Name == "game_frame") {
-								frame.ExecuteJavaScriptAsync(Frame_JS);
-								break;
-							}
-						}
-
-						StyleSheetApplied = true;
-					}
-				}
-				else if (StyleSheetApplied)
-				{
-					// remove style
-					// Browser.GetBrowser().MainFrame.ExecuteJavaScriptAsync(JS_Restore);
-					Browser.GetBrowser().MainFrame.ExecuteJavaScriptAsync(Restore_JS);
-					var identifiers = Browser.GetBrowser().GetFrameIdentifiers();
-					foreach (var i in identifiers) {
-						IFrame frame = Browser.GetBrowser().GetFrame(i);
-						if (frame.Name == "game_frame") {
+						IFrame frame = browser.GetFrame(i);
+						if (frame.Name == "game_frame")
+						{
+							has_game_frame = true;
 							frame.ExecuteJavaScriptAsync(Restore_JS);
 							break;
 						}
 					}
-
-					StyleSheetApplied = false;
+					if (has_game_frame)
+					{
+						browser.MainFrame.ExecuteJavaScriptAsync(Restore_JS);
+						StyleSheetApplied = false;
+					}
 				}
-				// }
+				else if (!StyleSheetApplied && Configuration.AppliesStyleSheet)
+				{
+					var browser = Browser.GetBrowser();
+					bool has_game_frame = false;
+					foreach (var i in browser.GetFrameIdentifiers())
+					{
+						IFrame frame = browser.GetFrame(i);
+						if (frame.Name == "game_frame")
+						{
+							has_game_frame = true;
+							frame.ExecuteJavaScriptAsync(Frame_JS);
+							break;
+						}
+					}
+					if (has_game_frame)
+					{
+						browser.MainFrame.ExecuteJavaScriptAsync(Page_JS);
+						StyleSheetApplied = true;
+					}
+				}
 
-				ApplyZoom();
+				// if ( Browser.Address.StartsWith( GAME_URL ) )
+				// {
 
-			} catch ( Exception ex ) {
+				ApplyZoom(); // something's not right, high cpu usage
 
-				BrowserHost.AsyncRemoteRun( () =>
-					BrowserHost.Proxy.SendErrorReport( ex.ToString(), "スタイルシートの適用に失敗しました。" ) );
+			}
+			catch (Exception ex)
+			{
+
+				BrowserHost.AsyncRemoteRun(() =>
+				   BrowserHost.Proxy.SendErrorReport(ex.ToString(), "スタイルシートの適用に失敗しました。"));
 			}
 		}
 
@@ -596,6 +609,23 @@ if (node) document.head.removeChild(node);
 		private void ConfigurationUpdated()
 		{
 			BrowserHost.AsyncRemoteRun(() => BrowserHost.Proxy.ConfigurationUpdated(Configuration));
+		}
+
+		private void AddLog(int priority, string message, string msgchs1 = "", string msgjap2 = "", string msgchs2 = "", string msgjap3 = "", string msgchs3 = "")
+		{
+			BrowserHost.AsyncRemoteRun(() => BrowserHost.Proxy.AddLog(priority, message, msgchs1, msgjap2, msgchs2, msgjap3, msgchs3));
+		}
+
+		private void SizeAdjuster_SizeChanged(object sender, System.EventArgs e)
+		{
+			if (Browser != null) {
+				if ((SizeAdjuster.Width == 0 || SizeAdjuster.Height == 0) && (Browser.Width != 0 && Browser.Height != 0)) {
+					BrowserSize = Browser.Size;
+					Browser.Size = new Size(0, 0);
+					return;
+				}
+				CenteringBrowser();
+			}
 		}
 	}
 
