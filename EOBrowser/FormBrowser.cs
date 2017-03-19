@@ -627,6 +627,11 @@ if (node) document.head.removeChild(node);
 				CenteringBrowser();
 			}
 		}
+
+		public void DestroyDMMreloadDialog()
+		{
+			return;
+		}
 	}
 
 	public class ToolStripOverride : ToolStripProfessionalRenderer
