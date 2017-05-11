@@ -179,6 +179,27 @@ config_string =
 			ReadConfigFile();
 			InitializeComponent();
 			this.ToolMenu.Renderer = new ToolStripOverride(); // remove stupid rounded corner
+
+			_volumeManager = new VolumeManager( (uint)System.Diagnostics.Process.GetCurrentProcess().Id );
+			// 音量設定用コントロールの追加
+			{
+				var control = new NumericUpDown();
+				control.Name = "ToolMenu_Other_Volume_VolumeControl";
+				control.Maximum = 100;
+				control.TextAlign = HorizontalAlignment.Right;
+				control.Font = ToolMenu_Other_Volume.Font;
+
+				control.ValueChanged += ToolMenu_Other_Volume_ValueChanged;
+				control.Tag = false;
+
+				var host = new ToolStripControlHost( control, "ToolMenu_Other_Volume_VolumeControlHost" );
+
+				control.Size = new Size( host.Width - control.Margin.Horizontal, host.Height - control.Margin.Vertical );
+				control.Location = new Point( control.Margin.Left, control.Margin.Top );
+
+
+				ToolMenu_Other_Volume.DropDownItems.Add( host );
+			}
 #if DEBUG
 			InitializeChromium("", "");
 #endif
@@ -586,7 +607,43 @@ if (node) document.head.removeChild(node);
 			ToolMenu_Other.Image =
 				Icons.Images["Browser_Other"];
 
-			// SetVolumeState();
+			SetVolumeState();
+		}
+
+		private VolumeManager _volumeManager;
+
+		private NumericUpDown ToolMenu_Other_Volume_VolumeControl {
+			get { return (NumericUpDown)( (ToolStripControlHost)ToolMenu_Other_Volume.DropDownItems["ToolMenu_Other_Volume_VolumeControlHost"] ).Control; }
+		}
+
+		private void SetVolumeState() {
+
+			bool mute;
+			float volume;
+
+			try {
+				mute = _volumeManager.IsMute;
+				volume = _volumeManager.Volume * 100;
+
+			} catch ( Exception ) {
+				// 音量データ取得不能時
+				mute = false;
+				volume = 100;
+			}
+
+			ToolMenu_Mute.Image = ToolMenu_Other_Mute.Image =
+				Icons.Images[mute ? "Browser_Mute" : "Browser_Unmute"];
+
+			{
+				var control = ToolMenu_Other_Volume_VolumeControl;
+				control.Tag = false;
+				control.Value = (decimal)volume;
+				control.Tag = true;
+			}
+
+			Configuration.Volume = volume;
+			Configuration.IsMute = mute;
+			ConfigurationUpdated();
 		}
 
 		private void toolStripButton1_Click(object sender, EventArgs e)
@@ -631,6 +688,34 @@ if (node) document.head.removeChild(node);
 		public void DestroyDMMreloadDialog()
 		{
 			return;
+		}
+
+		private void ToolMenu_Mute_Click(object sender, EventArgs e)
+		{
+			try {
+				_volumeManager.ToggleMute();
+
+			} catch ( Exception ) {
+				System.Media.SystemSounds.Beep.Play();
+			}
+
+			SetVolumeState();
+		}
+
+		void ToolMenu_Other_Volume_ValueChanged( object sender, EventArgs e ) {
+
+			var control = ToolMenu_Other_Volume_VolumeControl;
+
+			try {
+				if ( (bool)control.Tag )
+					_volumeManager.Volume = (float)( control.Value / 100 );
+				control.BackColor = SystemColors.Window;
+
+			} catch ( Exception ) {
+				control.BackColor = Color.MistyRose;
+
+			}
+
 		}
 	}
 

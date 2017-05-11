@@ -166,6 +166,7 @@
 			this.ToolMenu_Mute.Name = "ToolMenu_Mute";
 			this.ToolMenu_Mute.Size = new System.Drawing.Size(23, 22);
 			this.ToolMenu_Mute.Text = "静音";
+			this.ToolMenu_Mute.Click += new System.EventHandler(this.ToolMenu_Mute_Click);
 			// 
 			// toolStripLabel3
 			// 
