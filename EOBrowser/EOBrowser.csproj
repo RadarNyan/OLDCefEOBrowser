@@ -127,7 +127,11 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="CefEOBrowser\cefsharp\" />
-    <Folder Include="CefEOBrowser\html\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="CefEOBrowser\html\default.htm">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

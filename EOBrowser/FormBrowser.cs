@@ -61,6 +61,7 @@ config_string =
 			settings.BrowserSubprocessPath = Path.Combine(cef_path, @"bin\CefSharp.BrowserSubprocess.exe");
 			settings.CefCommandLineArgs.Add("proxy-server", proxy);
 			//settings.UserAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"; // Fake UA as IE11 on Windows 7
+			settings.LogSeverity = LogSeverity.Disable;
 			Cef.Initialize(settings);
 			//chromeBrowser = new ChromiumWebBrowser("chrome://view-http-cache/");
 			//Browser = new ChromiumWebBrowser("http://www.whoishostingthis.com/tools/user-agent/");
@@ -151,7 +152,11 @@ config_string =
 				// TODO: change settings on-the-fly
 			} else {
 				// Start Cef Browser
-				InitializeChromium(proxy_cef, Configuration.LogInPageURL);
+				if (Configuration.IsEnabled) {
+					InitializeChromium(proxy_cef, Configuration.LogInPageURL);
+				} else {
+					InitializeChromium(proxy_cef, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"CefEOBrowser\html\default.htm"));
+				}
 			}
 		}
 
@@ -273,7 +278,7 @@ config_string =
 			SizeAdjuster.AutoScroll = Configuration.IsScrollable;
 			ToolMenu_Other_Zoom_Fit.Checked = Configuration.ZoomFit;
 			ApplyZoom();
-			ToolMenu_Other_AppliesStyleSheet.Checked = Configuration.AppliesStyleSheet;
+			// ToolMenu_Other_AppliesStyleSheet.Checked = Configuration.AppliesStyleSheet;
 			ToolMenu.Dock = (DockStyle)Configuration.ToolMenuDockStyle;
 			ToolMenu.Visible = Configuration.IsToolMenuVisible;
 
@@ -291,10 +296,9 @@ config_string =
 			//ロード直後の適用ではレイアウトがなぜか崩れるのでこのタイミングでも適用
 			ApplyStyleSheet();
 			ApplyZoom();
-/*
+
 			//起動直後はまだ音声が鳴っていないのでミュートできないため、この時点で有効化
 			SetVolumeState();
-*/
 		}
 
 		// folderPath: 保存するフォルダへのパス
@@ -392,9 +396,11 @@ config_string =
 		}
 
 		private void CenteringBrowser() {
-			if (SizeAdjuster.Width == 0 || SizeAdjuster.Height == 0) return;
+			if (SizeAdjuster.Width == 0 || SizeAdjuster.Height == 0)
+				return;
 			SizeAdjuster.SuspendLayout();
-			Browser.Size = BrowserSize;
+			if (BrowserSize.Width != 0 && BrowserSize.Height != 0)
+				Browser.Size = BrowserSize;
 			int x = Browser.Location.X, y = Browser.Location.Y;
 			bool isScrollable = Configuration.IsScrollable;
 			Browser.Dock = DockStyle.None;
@@ -467,7 +473,7 @@ config_string =
 
 private readonly string Page_JS =
 @"(function () {
-var node = document.getElementById('eobrowser_stylish');
+var node = document.getElementById('da1733f9ca1d');
 if (node) document.head.removeChild(node);
 node = document.createElement('style');
 node.id = 'eobrowser_stylish';
@@ -482,7 +488,7 @@ document.head.appendChild(node);
 
 private readonly string Frame_JS =
 @"(function () {
-var node = document.getElementById('eobrowser_stylish');
+var node = document.getElementById('da1733f9ca1d');
 if (node) document.head.removeChild(node);
 node = document.createElement('style');
 node.id = 'eobrowser_stylish';
@@ -494,7 +500,7 @@ document.head.appendChild(node);
 
 private readonly string Restore_JS =
 @"(function () {
-var node = document.getElementById('eobrowser_stylish');
+var node = document.getElementById('da1733f9ca1d');
 if (node) document.head.removeChild(node);
 })();";
 
@@ -676,9 +682,12 @@ if (node) document.head.removeChild(node);
 		private void SizeAdjuster_SizeChanged(object sender, System.EventArgs e)
 		{
 			if (Browser != null) {
-				if ((SizeAdjuster.Width == 0 || SizeAdjuster.Height == 0) && (Browser.Width != 0 && Browser.Height != 0)) {
-					BrowserSize = Browser.Size;
-					Browser.Size = new Size(0, 0);
+				var tempSize = new Size(Browser.Width, Browser.Height);
+				if (SizeAdjuster.Width == 0 || SizeAdjuster.Height == 0) { // Minimized
+					if (tempSize.Width != 0 && tempSize.Height != 0) {
+						BrowserSize = tempSize;
+					}
+					Browser.Size = new Size(0, 0); // Reduce CPU usage
 					return;
 				}
 				CenteringBrowser();
