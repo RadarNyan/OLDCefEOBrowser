@@ -476,7 +476,7 @@ private readonly string Page_JS =
 var node = document.getElementById('da1733f9ca1d');
 if (node) document.head.removeChild(node);
 node = document.createElement('style');
-node.id = 'eobrowser_stylish';
+node.id = 'da1733f9ca1d';
 node.innerHTML = 'body { visibility: hidden; overflow: hidden; } \
 div #block_background { visibility: visible; } \
 div #alert { visibility: visible; overflow: scroll; top: 0 !important; left: 3% !important; width: 90% !important; height: 100%; padding:2%;} \
@@ -491,7 +491,7 @@ private readonly string Frame_JS =
 var node = document.getElementById('da1733f9ca1d');
 if (node) document.head.removeChild(node);
 node = document.createElement('style');
-node.id = 'eobrowser_stylish';
+node.id = 'da1733f9ca1d';
 node.innerHTML = 'body { visibility: hidden; } \
 #flashWrap { position: fixed; left: 0; top: 0; width: 100%; height: 100%; } \
 #externalswf { visibility: visible; width: 100%; height: 100%; }';
