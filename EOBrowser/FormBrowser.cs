@@ -726,6 +726,11 @@ if (node) document.head.removeChild(node);
 			}
 
 		}
+
+		public void SaveScreenShot()
+		{
+			return;
+		}
 	}
 
 	public class ToolStripOverride : ToolStripProfessionalRenderer
